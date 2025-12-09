@@ -68,24 +68,25 @@ def parse_full_statement_xls(file_path: str, original_filename: str = "") -> Dic
     fin_parser = XlsFinancialOperationsParser()
     fin_operations, fin_stats = fin_parser.parse(file_path)
 
-    trades, trade_stats = parse_trades_from_xls(file_path)
-    if "error" in trade_stats:
-        logger.warning(f"Ошибка сделок: {trade_stats['error']}")
-        trades = []
-        trade_stats = {"parsed": 0, "total_rows": 0, "total_commission": 0.0}
-
-    transfers, transfer_stats = parse_transfers_from_xls(file_path)
-    if "error" in transfer_stats:
-        logger.warning(f"Ошибка неторговых операций: {transfer_stats['error']}")
-        transfers = []
-        transfer_stats = {"parsed": 0, "total_rows": 0}
+    # trades, trade_stats = parse_trades_from_xls(file_path)
+    # if "error" in trade_stats:
+    #     logger.warning(f"Ошибка сделок: {trade_stats['error']}")
+    #     trades = []
+    #     trade_stats = {"parsed": 0, "total_rows": 0, "total_commission": 0.0}
+    #
+    # transfers, transfer_stats = parse_transfers_from_xls(file_path)
+    # if "error" in transfer_stats:
+    #     logger.warning(f"Ошибка неторговых операций: {transfer_stats['error']}")
+    #     transfers = []
+    #     transfer_stats = {"parsed": 0, "total_rows": 0}
 
     # Дедупликация
     deduped_fin, _ = _dedupe_ops(fin_operations)
-    deduped_trades, _ = _dedupe_ops(trades)
-    deduped_transfers, _ = _dedupe_ops(transfers)
+    # deduped_trades, _ = _dedupe_ops(trades)
+    # deduped_transfers, _ = _dedupe_ops(transfers)
 
-    combined_ops_dto = deduped_fin + deduped_trades + deduped_transfers
+    # combined_ops_dto = deduped_fin + deduped_trades + deduped_transfers
+    combined_ops_dto = deduped_fin
 
     operations_dicts = [op.to_dict() for op in combined_ops_dto]
 
@@ -98,27 +99,27 @@ def parse_full_statement_xls(file_path: str, original_filename: str = "") -> Dic
     # Мета-информация
     meta = {
         "fin_ops_raw_count": fin_stats.get("total_rows", 0),
-        "trade_ops_raw_count": trade_stats.get("total_rows", 0),
-        "transfer_ops_raw_count": transfer_stats.get("total_rows", 0),
+        # "trade_ops_raw_count": trade_stats.get("total_rows", 0),
+        # "transfer_ops_raw_count": transfer_stats.get("total_rows", 0),
         "total_ops_count": len(combined_ops_dto),
         "fin_ops_stats": fin_stats,
-        "trade_ops_stats": trade_stats,
-        "transfer_ops_stats": transfer_stats,
+        # "trade_ops_stats": trade_stats,
+        # "transfer_ops_stats": transfer_stats,
         "detected_sheets": {
             "fin_sheet": fin_stats.get("detected_sheet", ""),
-            "trades_sheet": trade_stats.get("detected_sheet", ""),
-            "transfers_sheet": transfer_stats.get("detected_sheet", "")
+            # "trades_sheet": trade_stats.get("detected_sheet", ""),
+            # "transfers_sheet": transfer_stats.get("detected_sheet", "")
         },
     }
 
     # Итоговый отчет
     total_ops = len(combined_ops_dto)
     fin_count = len(deduped_fin)
-    trades_count = len(deduped_trades)
-    transfers_count = len(deduped_transfers)
+    # trades_count = len(deduped_trades)
+    # transfers_count = len(deduped_transfers)
 
     logger.info(
-        f"Парсинг завершен: {total_ops} операций (фин: {fin_count}, сделки: {trades_count}, конвертации: {transfers_count})")
+        f"Парсинг завершен: {total_ops} операций (фин: {fin_count})")
 
     return {
         "operations": operations_dicts,

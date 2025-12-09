@@ -9,7 +9,7 @@ from src.services.full_statement_xls import parse_full_statement_xls
 from src.utils import logger
 from src.routers import parse
 
-app = FastAPI(title="Alfa-Bank Broker Report Parser", version="0.1")
+app = FastAPI(title="Sberbank Broker Report Parser", version="0.1")
 
 app.add_middleware(
     CORSMiddleware,

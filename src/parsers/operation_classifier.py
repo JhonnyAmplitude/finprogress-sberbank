@@ -8,10 +8,15 @@ class OperationClassifier:
         "НДФЛ": lambda name, amount, comment: "refund" if amount > 0 else "withholding",
     }
     OPERATION_TYPE_MAP = {
-        "Возмещение": "commission_refund",
-        "Дивиденды": "dividend",
-        "Купонный доход": "coupon",
-        "Погашение купона": "coupon",
+        "Комиссия": "commission",
+        "Пополнение счёта": "deposit",
+        "Вывод со счёта": "withdrawal",
+        "Выплата купонов": "coupon",
+        "Погашение ценных бумаг": "repayment",
+        "Выплата дивидендов": "dividend",
+        "Налог": "withholding",
+
+        "Перевод": "?",
     }
 
     SKIP_OPERATIONS = {
@@ -38,7 +43,7 @@ class OperationClassifier:
         "EUR": "EUR", "GBP": "GBP", "HKD": "HKD", "JPY": "JPY", "KGS": "KGS",
         "KZT": "KZT", "NOK": "NOK", "RUB": "RUB", "РУБЛЬ": "RUB", "Рубль": "RUB",
         "SEK": "SEK", "TJS": "TJS", "TRY": "TRY", "USD": "USD", "UZS": "UZS",
-        "XAG": "XAG", "XAU": "XAU", "ZAR": "ZAR"
+        "XAG": "RUR", "XAU": "XAU", "ZAR": "ZAR"
     }
 
     @classmethod
