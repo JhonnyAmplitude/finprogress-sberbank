@@ -16,7 +16,7 @@ class OperationClassifier:
         "Выплата дивидендов": "dividend",
         "Налог": "withholding",
 
-        "Перевод": "?",
+        "Перевод": "withdrawal",
     }
 
     SKIP_OPERATIONS = {

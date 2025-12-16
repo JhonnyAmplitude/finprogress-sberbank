@@ -1,4 +1,3 @@
-# parsers/xls_parsers/xls_fin_ops.py
 import pandas as pd
 from datetime import datetime
 from decimal import Decimal
@@ -6,8 +5,6 @@ from typing import List, Tuple, Dict, Any, Optional
 from pathlib import Path
 from src.OperationDTO import OperationDTO
 from src.utils import (
-    extract_reg_number,
-    extract_isin,
     get_logger,
     to_float_safe
 )
@@ -125,12 +122,13 @@ class XlsFinancialOperationsParser:
 
     def _process_row(self, row: pd.Series, column_mapping: Dict[str, int], row_index: int) -> Optional[OperationDTO]:
         status_col = column_mapping["status"]
-        status = str(row.iloc[status_col]).strip() if not pd.isna(row.iloc[status_col]) else ""
+        status_val = row.iloc[status_col]
+        status = str(status_val).strip() if pd.notna(status_val) else ""
         if status != "Исполнена":
             self.stats["skipped_not_executed"] += 1
             return None
 
-        # Дата — pandas уже распарсил в datetime, если возможно
+        # Дата
         date_val = row.iloc[column_mapping["date"]]
         if pd.isna(date_val):
             self.stats["skipped_no_date"] += 1
@@ -139,43 +137,48 @@ class XlsFinancialOperationsParser:
             execution_date = date_val
         else:
             execution_date = self._parse_date_fallback(str(date_val))
-
         if not execution_date:
             self.stats["skipped_no_date"] += 1
             return None
 
+        # Сумма
         amount_val = row.iloc[column_mapping["amount"]]
         payment_sum = to_float_safe(amount_val)
         if payment_sum == 0.0:
             self.stats["skipped_no_amount"] += 1
             return None
 
+        # Основные поля
         operation_type_raw = str(row.iloc[column_mapping["operation_type"]]).strip()
         currency_raw = str(row.iloc[column_mapping["currency"]]).strip()
-        comment = str(row.iloc[column_mapping["comment"]]).strip() if "comment" in column_mapping else ""
-        instrument_code = str(row.iloc[column_mapping["instrument_code"]]).strip() if "instrument_code" in column_mapping else ""
+        comment = ""
+        if "comment" in column_mapping:
+            cmt_val = row.iloc[column_mapping["comment"]]
+            comment = str(cmt_val).strip() if pd.notna(cmt_val) else ""
+
+        instrument_code = ""
+        if "instrument_code" in column_mapping:
+            code_val = row.iloc[column_mapping["instrument_code"]]
+            if pd.notna(code_val) and str(code_val).strip().lower() not in ("nan", "none", "null", ""):
+                instrument_code = str(code_val).strip()
 
         currency = OperationClassifier.CURRENCY_DICT.get(currency_raw.upper(), currency_raw.upper())
-        if currency == "RUR":
-            currency = "RUB"
 
         op_type = OperationClassifier.determine_operation_type(operation_type_raw, comment, payment_sum)
         if OperationClassifier.should_skip_operation(operation_type_raw, comment, operation_type_raw):
             self.stats["skipped"] += 1
             return None
 
-        full_text = f"{comment} {instrument_code}".strip()
-        isin = extract_isin(full_text)
-        reg_number = extract_reg_number(full_text)
+        ticker = instrument_code
 
         dto = OperationDTO(
             date=execution_date,
             operation_type=op_type,
             payment_sum=abs(payment_sum),
             currency=currency,
-            ticker="",
-            isin=isin,
-            reg_number=reg_number,
+            ticker=ticker,
+            isin="",
+            reg_number="",
             price=0.0,
             quantity=0.0,
             aci=0.0,

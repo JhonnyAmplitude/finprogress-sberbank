@@ -1,3 +1,4 @@
+# parsers/xls_parsers/xls_trades.py
 import pandas as pd
 from datetime import datetime
 from typing import List, Tuple, Dict, Any, Optional
@@ -18,7 +19,7 @@ class XlsTradesParser:
         "date_conclusion": ["дата заключения"],
         "operation": ["операция"],
         "isin_or_ticker": ["код финансового инструмента"],
-        "asset_type": ["тип финансового инструмента"],  # не используется
+        "asset_type": ["тип финансового инструмента"],
         "quantity": ["количество"],
         "price": ["цена"],
         "amount": ["объем сделки"],
@@ -101,18 +102,12 @@ class XlsTradesParser:
                     column_mapping[field] = idx
                     break
 
-        required = ["date_conclusion", "operation", "isin_or_ticker", "quantity", "amount", "currency"]
+        required = ["date_conclusion", "operation", "isin_or_ticker", "asset_type", "quantity", "amount", "currency"]
         missing = [r for r in required if r not in column_mapping]
         if missing:
             raise ValueError(f"Не найдены обязательные колонки: {missing}. Заголовки: {df.columns.tolist()}")
 
         return column_mapping
-
-    def _is_isin(self, s: str) -> bool:
-        """Проверяет, соответствует ли строка формату ISIN (12 символов, AA + 9 alnum + 1 digit)."""
-        if not isinstance(s, str) or len(s) != 12:
-            return False
-        return bool(re.fullmatch(r'^[A-Z]{2}[A-Z0-9]{9}[0-9]$', s))
 
     def _extract_field(self, row: pd.Series, column_mapping: Dict[str, int], field_name: str) -> str:
         if field_name not in column_mapping:
@@ -138,20 +133,17 @@ class XlsTradesParser:
         return operations
 
     def _process_row(self, row: pd.Series, column_mapping: Dict[str, int]) -> Optional[OperationDTO]:
-        # Дата
         date_str = self._extract_field(row, column_mapping, "date_conclusion")
         if not date_str:
             self.stats["skipped_no_date"] += 1
             return None
         try:
-            # Поддержка формата "21,12,2023 17:36:41"
             date_clean = date_str.replace(",", ".")
             trade_date = pd.to_datetime(date_clean, dayfirst=True)
         except Exception:
             self.stats["skipped_no_date"] += 1
             return None
 
-        # Основные поля
         qty = to_float_safe(self._extract_field(row, column_mapping, "quantity"))
         if qty == 0:
             self.stats["skipped_no_qty"] += 1
@@ -164,23 +156,27 @@ class XlsTradesParser:
 
         commission = to_float_safe(self._extract_field(row, column_mapping, "commission"))
 
-        # Тип операции — строго по колонке "Операция"
         operation_raw = self._extract_field(row, column_mapping, "operation")
-        if "покупка" in operation_raw.lower():
-            operation_type = "buy"
-        elif "продажа" in operation_raw.lower():
-            operation_type = "sale"
-        else:
-            # Fallback на количество (на случай аномалий)
-            operation_type = "buy" if qty > 0 else "sale"
+        asset_type = self._extract_field(row, column_mapping, "asset_type")
 
-        # Код инструмента: ISIN или тикер
+        if "покупка" in operation_raw.lower():
+            base_type = "buy"
+        elif "продажа" in operation_raw.lower():
+            base_type = "sale"
+        else:
+            base_type = "buy" if qty > 0 else "sale"
+
+        if asset_type.strip().lower() == "валюта":
+            operation_type = f"currency_{base_type}"
+        else:
+            operation_type = base_type
+
         code = self._extract_field(row, column_mapping, "isin_or_ticker")
-        isin = ""
         ticker = ""
+
         if code:
-            if self._is_isin(code):
-                isin = code
+            if asset_type.strip().lower() == "валюта":
+                ticker = code[:3].upper()
             else:
                 ticker = code
 
@@ -192,7 +188,7 @@ class XlsTradesParser:
             payment_sum=abs(amount),
             currency=currency,
             ticker=ticker,
-            isin=isin,
+            isin="",
             reg_number="",
             price=price,
             quantity=abs(qty),
