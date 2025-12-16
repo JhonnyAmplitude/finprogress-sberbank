@@ -27,7 +27,6 @@ class XlsFinancialOperationsParser:
             "skipped_not_executed": 0,
             "skipped_no_date": 0,
             "skipped_no_amount": 0,
-            "example_comments": [],
             "amounts_by_mapped_type": {},
             "amounts_by_label": {},
             "total_income": Decimal("0"),
@@ -125,7 +124,6 @@ class XlsFinancialOperationsParser:
         return operations
 
     def _process_row(self, row: pd.Series, column_mapping: Dict[str, int], row_index: int) -> Optional[OperationDTO]:
-        # Статус
         status_col = column_mapping["status"]
         status = str(row.iloc[status_col]).strip() if not pd.isna(row.iloc[status_col]) else ""
         if status != "Исполнена":
@@ -207,18 +205,10 @@ class XlsFinancialOperationsParser:
         self.stats["amounts_by_mapped_type"][mapped_type] = (
             self.stats["amounts_by_mapped_type"].get(mapped_type, Decimal("0")) + amount
         )
-        if amount > 0:
-            self.stats["total_income"] += amount
-        else:
-            self.stats["total_expense"] += abs(amount)
 
-        if len(self.stats["example_comments"]) < 5 and comment:
-            self.stats["example_comments"].append(comment)
 
     def _finalize_stats(self) -> Dict[str, Any]:
         stats = self.stats.copy()
-        stats["total_income"] = str(stats["total_income"])
-        stats["total_expense"] = str(stats["total_expense"])
         stats["amounts_by_mapped_type"] = {k: str(v) for k, v in stats["amounts_by_mapped_type"].items()}
         stats["amounts_by_label"] = {k: str(v) for k, v in stats["amounts_by_label"].items()}
         return stats
